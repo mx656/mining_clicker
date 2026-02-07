@@ -11,13 +11,14 @@
     body {
       background: #3b6e22;
       font-family: 'Press Start 2P', cursive;
-      color: #fff;
+      color: white;
       text-align: center;
       padding-top: 40px;
+      overflow: hidden;
     }
 
     h1, h2, h3 {
-      margin: 20px;
+      margin: 15px;
     }
 
     button {
@@ -39,6 +40,19 @@
       padding: 20px;
       margin: 20px auto;
       width: 320px;
+    }
+
+    .float {
+      position: absolute;
+      color: yellow;
+      font-size: 14px;
+      animation: floatUp 1s ease-out forwards;
+      pointer-events: none;
+    }
+
+    @keyframes floatUp {
+      from { opacity: 1; transform: translateY(0); }
+      to { opacity: 0; transform: translateY(-50px); }
     }
   </style>
 </head>
@@ -65,7 +79,11 @@
   </div>
 
   <script>
-    // LOAD SAVED DATA OR DEFAULTS
+    // Sounds
+    const clickSound = new Audio("https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg");
+    const buySound = new Audio("https://actions.google.com/sounds/v1/cartoon/pop.ogg");
+
+    // Load saved data
     let coins = Number(localStorage.getItem("coins")) || 0;
     let coinsPerClick = Number(localStorage.getItem("cpc")) || 1;
     let coinsPerSecond = Number(localStorage.getItem("cps")) || 0;
@@ -74,6 +92,17 @@
 
     function mine() {
       coins += coinsPerClick;
+      clickSound.currentTime = 0;
+      clickSound.play();
+
+      const text = document.createElement("div");
+      text.className = "float";
+      text.innerText = `+${coinsPerClick}`;
+      text.style.left = (window.innerWidth / 2 + Math.random() * 40 - 20) + "px";
+      text.style.top = "300px";
+      document.body.appendChild(text);
+
+      setTimeout(() => text.remove(), 1000);
       update();
     }
 
@@ -82,6 +111,7 @@
         coins -= pickaxeCost;
         coinsPerClick++;
         pickaxeCost = Math.floor(pickaxeCost * 1.5);
+        buySound.play();
         update();
       }
     }
@@ -91,11 +121,12 @@
         coins -= minerCost;
         coinsPerSecond++;
         minerCost = Math.floor(minerCost * 1.6);
+        buySound.play();
         update();
       }
     }
 
-    // AUTO MINING
+    // Auto mining
     setInterval(() => {
       coins += coinsPerSecond;
       update();
@@ -108,7 +139,7 @@
       document.getElementById("pickCost").innerText = pickaxeCost;
       document.getElementById("minerCost").innerText = minerCost;
 
-      // SAVE GAME
+      // Save game
       localStorage.setItem("coins", coins);
       localStorage.setItem("cpc", coinsPerClick);
       localStorage.setItem("cps", coinsPerSecond);
@@ -121,4 +152,5 @@
 
 </body>
 </html>
+
 
