@@ -1,156 +1,254 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>⛏️ Mining Clicker</title>
+<meta charset="UTF-8">
+<title>⛏️ Mining Clicker</title>
 
-  <!-- Minecraft-style font -->
-  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 
-  <style>
-    body {
-      background: #3b6e22;
-      font-family: 'Press Start 2P', cursive;
-      color: white;
-      text-align: center;
-      padding-top: 40px;
-      overflow: hidden;
-    }
+<style>
+:root {
+  --bg1:#1b3a1b;
+  --bg2:#3b6e22;
+  --card:#2f4f1f;
+  --border:#1e3314;
+  --btn:#8b8b8b;
+  --btnHover:#a0a0a0;
+  --accent:#ffd700;
+}
 
-    h1, h2, h3 {
-      margin: 15px;
-    }
+* { box-sizing: border-box; }
 
-    button {
-      background: #8b8b8b;
-      border: 4px solid #555;
-      padding: 15px 20px;
-      font-size: 12px;
-      cursor: pointer;
-      margin: 10px;
-    }
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: linear-gradient(180deg, var(--bg1), var(--bg2));
+  font-family: 'Press Start 2P', cursive;
+  color: white;
+  text-align: center;
+}
 
-    button:hover {
-      background: #a0a0a0;
-    }
+header {
+  padding: 20px;
+  font-size: 18px;
+  text-shadow: 2px 2px #000;
+}
 
-    .box {
-      background: #2f4f1f;
-      border: 4px solid #1e3314;
-      padding: 20px;
-      margin: 20px auto;
-      width: 320px;
-    }
+main {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+  padding: 20px;
+  max-width: 1000px;
+  margin: auto;
+}
 
-    .float {
-      position: absolute;
-      color: yellow;
-      font-size: 14px;
-      animation: floatUp 1s ease-out forwards;
-      pointer-events: none;
-    }
+.card {
+  background: var(--card);
+  border: 4px solid var(--border);
+  padding: 20px;
+  box-shadow: 0 0 15px #000;
+}
 
-    @keyframes floatUp {
-      from { opacity: 1; transform: translateY(0); }
-      to { opacity: 0; transform: translateY(-50px); }
-    }
-  </style>
+button {
+  background: var(--btn);
+  border: 4px solid #555;
+  padding: 14px;
+  margin: 8px 0;
+  width: 100%;
+  font-size: 11px;
+  cursor: pointer;
+  transition: transform 0.1s, background 0.1s;
+}
+
+button:hover {
+  background: var(--btnHover);
+  transform: scale(1.03);
+}
+
+button:active {
+  transform: scale(0.97);
+}
+
+.stat {
+  margin: 10px 0;
+}
+
+.float {
+  position: absolute;
+  color: var(--accent);
+  animation: floatUp 1s ease-out forwards;
+  pointer-events: none;
+}
+
+@keyframes floatUp {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-60px); }
+}
+
+footer {
+  padding: 15px;
+  font-size: 10px;
+  opacity: 0.8;
+}
+</style>
 </head>
+
 <body>
 
-  <h1>⛏️ Mining Clicker</h1>
+<header>⛏️ MINING CLICKER</header>
 
-  <div class="box">
-    <h2>Coins: <span id="coins">0</span></h2>
-    <h3>Per Click: <span id="cpc">1</span></h3>
-    <h3>Per Second: <span id="cps">0</span></h3>
-    <button onclick="mine()">MINE</button>
-  </div>
+<main>
 
-  <div class="box">
-    <h3>Upgrades</h3>
-    <button onclick="buyPickaxe()">
-      Better Pickaxe (Cost: <span id="pickCost">10</span>)
-    </button>
-    <br>
-    <button onclick="buyMiner()">
-      Auto Miner (Cost: <span id="minerCost">25</span>)
-    </button>
-  </div>
+<div class="card">
+  <div class="stat">Coins: <span id="coins">0</span></div>
+  <div class="stat">Per Click: <span id="cpc">1</span></div>
+  <div class="stat">Per Second: <span id="cps">0</span></div>
+  <div class="stat">Prestige Bonus: x<span id="prestigeBonus">1</span></div>
+  <button onclick="mine()">MINE</button>
+</div>
 
-  <script>
-    // Sounds
-    const clickSound = new Audio("https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg");
-    const buySound = new Audio("https://actions.google.com/sounds/v1/cartoon/pop.ogg");
+<div class="card">
+  <h3>Upgrades</h3>
+  <button onclick="buyPickaxe()">⛏️ Pickaxe (+1 click)<br>Cost: <span id="pickCost">10</span></button>
+  <button onclick="buyMiner()">🤖 Miner (+1/sec)<br>Cost: <span id="minerCost">25</span></button>
+  <button onclick="buyFurnace()">🔥 Furnace (+5/sec)<br>Cost: <span id="furnaceCost">150</span></button>
+  <button onclick="buyDrill()">🛠️ Drill (+10/sec)<br>Cost: <span id="drillCost">400</span></button>
+</div>
 
-    // Load saved data
-    let coins = Number(localStorage.getItem("coins")) || 0;
-    let coinsPerClick = Number(localStorage.getItem("cpc")) || 1;
-    let coinsPerSecond = Number(localStorage.getItem("cps")) || 0;
-    let pickaxeCost = Number(localStorage.getItem("pickCost")) || 10;
-    let minerCost = Number(localStorage.getItem("minerCost")) || 25;
+<div class="card">
+  <h3>Prestige</h3>
+  <p>Reset progress for a permanent bonus.</p>
+  <button onclick="prestige()">⭐ PRESTIGE</button>
+</div>
 
-    function mine() {
-      coins += coinsPerClick;
-      clickSound.currentTime = 0;
-      clickSound.play();
+</main>
 
-      const text = document.createElement("div");
-      text.className = "float";
-      text.innerText = `+${coinsPerClick}`;
-      text.style.left = (window.innerWidth / 2 + Math.random() * 40 - 20) + "px";
-      text.style.top = "300px";
-      document.body.appendChild(text);
+<footer>
+  Your game • Built by you • Future ads / donate button goes here
+</footer>
 
-      setTimeout(() => text.remove(), 1000);
-      update();
-    }
+<script>
+const clickSound = new Audio("https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg");
+const buySound = new Audio("https://actions.google.com/sounds/v1/cartoon/pop.ogg");
 
-    function buyPickaxe() {
-      if (coins >= pickaxeCost) {
-        coins -= pickaxeCost;
-        coinsPerClick++;
-        pickaxeCost = Math.floor(pickaxeCost * 1.5);
-        buySound.play();
-        update();
-      }
-    }
+let coins = +localStorage.getItem("coins") || 0;
+let cpc = +localStorage.getItem("cpc") || 1;
+let cps = +localStorage.getItem("cps") || 0;
+let prestigeLevel = +localStorage.getItem("prestige") || 0;
 
-    function buyMiner() {
-      if (coins >= minerCost) {
-        coins -= minerCost;
-        coinsPerSecond++;
-        minerCost = Math.floor(minerCost * 1.6);
-        buySound.play();
-        update();
-      }
-    }
+let pickCost = +localStorage.getItem("pickCost") || 10;
+let minerCost = +localStorage.getItem("minerCost") || 25;
+let furnaceCost = +localStorage.getItem("furnaceCost") || 150;
+let drillCost = +localStorage.getItem("drillCost") || 400;
 
-    // Auto mining
-    setInterval(() => {
-      coins += coinsPerSecond;
-      update();
-    }, 1000);
+function bonus() {
+  return 1 + prestigeLevel * 0.5;
+}
 
-    function update() {
-      document.getElementById("coins").innerText = coins;
-      document.getElementById("cpc").innerText = coinsPerClick;
-      document.getElementById("cps").innerText = coinsPerSecond;
-      document.getElementById("pickCost").innerText = pickaxeCost;
-      document.getElementById("minerCost").innerText = minerCost;
+function mine() {
+  coins += cpc * bonus();
+  clickSound.currentTime = 0;
+  clickSound.play();
+  floatText(`+${Math.floor(cpc * bonus())}`);
+  update();
+}
 
-      // Save game
-      localStorage.setItem("coins", coins);
-      localStorage.setItem("cpc", coinsPerClick);
-      localStorage.setItem("cps", coinsPerSecond);
-      localStorage.setItem("pickCost", pickaxeCost);
-      localStorage.setItem("minerCost", minerCost);
-    }
-
+function buyPickaxe() {
+  if (coins >= pickCost) {
+    coins -= pickCost;
+    cpc++;
+    pickCost = Math.floor(pickCost * 1.5);
+    buySound.play();
     update();
-  </script>
+  }
+}
+
+function buyMiner() {
+  if (coins >= minerCost) {
+    coins -= minerCost;
+    cps += 1;
+    minerCost = Math.floor(minerCost * 1.6);
+    buySound.play();
+    update();
+  }
+}
+
+function buyFurnace() {
+  if (coins >= furnaceCost) {
+    coins -= furnaceCost;
+    cps += 5;
+    furnaceCost = Math.floor(furnaceCost * 1.7);
+    buySound.play();
+    update();
+  }
+}
+
+function buyDrill() {
+  if (coins >= drillCost) {
+    coins -= drillCost;
+    cps += 10;
+    drillCost = Math.floor(drillCost * 1.8);
+    buySound.play();
+    update();
+  }
+}
+
+function prestige() {
+  if (coins >= 1000) {
+    prestigeLevel++;
+    coins = 0;
+    cpc = 1;
+    cps = 0;
+    pickCost = 10;
+    minerCost = 25;
+    furnaceCost = 150;
+    drillCost = 400;
+    update();
+  } else {
+    alert("You need 1000 coins to prestige!");
+  }
+}
+
+setInterval(() => {
+  coins += cps * bonus();
+  update();
+}, 1000);
+
+function floatText(text) {
+  const el = document.createElement("div");
+  el.className = "float";
+  el.innerText = text;
+  el.style.left = (window.innerWidth / 2 + Math.random() * 80 - 40) + "px";
+  el.style.top = "200px";
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1000);
+}
+
+function update() {
+  coins = Math.floor(coins);
+  document.getElementById("coins").innerText = coins;
+  document.getElementById("cpc").innerText = cpc;
+  document.getElementById("cps").innerText = cps;
+  document.getElementById("prestigeBonus").innerText = bonus();
+
+  document.getElementById("pickCost").innerText = pickCost;
+  document.getElementById("minerCost").innerText = minerCost;
+  document.getElementById("furnaceCost").innerText = furnaceCost;
+  document.getElementById("drillCost").innerText = drillCost;
+
+  localStorage.setItem("coins", coins);
+  localStorage.setItem("cpc", cpc);
+  localStorage.setItem("cps", cps);
+  localStorage.setItem("prestige", prestigeLevel);
+  localStorage.setItem("pickCost", pickCost);
+  localStorage.setItem("minerCost", minerCost);
+  localStorage.setItem("furnaceCost", furnaceCost);
+  localStorage.setItem("drillCost", drillCost);
+}
+
+update();
+</script>
 
 </body>
 </html>
-
-
