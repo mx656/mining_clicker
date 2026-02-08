@@ -101,10 +101,6 @@ High: <span id="high">0</span>
   </div>
 </div>
 
-<!-- Sounds -->
-<audio id="hitSound" src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_7c8d4c2db2.mp3"></audio>
-<audio id="scoreSound" src="https://cdn.pixabay.com/download/audio/2022/02/23/audio_9c94b4c31f.mp3"></audio>
-
 <script>
 const game = document.getElementById("game");
 const player = document.getElementById("player");
@@ -114,9 +110,6 @@ const overlay = document.getElementById("overlay");
 const overlayTitle = document.getElementById("overlayTitle");
 const overlayText = document.getElementById("overlayText");
 const startBtn = document.getElementById("startBtn");
-
-const hitSound = document.getElementById("hitSound");
-const scoreSound = document.getElementById("scoreSound");
 
 let obstacles = [];
 let powerups = [];
@@ -129,9 +122,19 @@ let speed = 0.3;
 let lastTime = 0;
 let shield = false;
 
+// 🔊 SOUND (WORKING METHOD)
+let hitSound;
+let scoreSound;
+
 highEl.textContent = high;
 
 function startGame() {
+  // create sounds AFTER click (browser-safe)
+  hitSound = new Audio("https://cdn.pixabay.com/download/audio/2022/03/15/audio_7c8d4c2db2.mp3");
+  scoreSound = new Audio("https://cdn.pixabay.com/download/audio/2022/02/23/audio_9c94b4c31f.mp3");
+  hitSound.volume = 0.4;
+  scoreSound.volume = 0.4;
+
   [...obstacles, ...powerups].forEach(e => e.remove());
   obstacles = [];
   powerups = [];
@@ -176,7 +179,7 @@ function loop(time) {
         o.remove();
         obstacles.splice(i, 1);
       } else {
-        hitSound.play();
+        hitSound.cloneNode().play();
         return gameOver();
       }
     }
@@ -185,7 +188,7 @@ function loop(time) {
       o.remove();
       obstacles.splice(i, 1);
       score++;
-      scoreSound.play();
+      scoreSound.cloneNode().play();
       scoreEl.textContent = score;
       speed += 0.01;
     }
@@ -243,25 +246,18 @@ function collision(a, b) {
 document.addEventListener("mousemove", e => {
   if (!running) return;
   const rect = game.getBoundingClientRect();
-  player.style.left = Math.max(0, Math.min(rect.width - 40, e.clientX - rect.left - 20)) + "px";
+  player.style.left =
+    Math.max(0, Math.min(rect.width - 40, e.clientX - rect.left - 20)) + "px";
 });
 
 document.addEventListener("touchmove", e => {
   if (!running) return;
   const rect = game.getBoundingClientRect();
-  player.style.left = Math.max(0, Math.min(rect.width - 40, e.touches[0].clientX - rect.left - 20)) + "px";
+  player.style.left =
+    Math.max(0, Math.min(rect.width - 40, e.touches[0].clientX - rect.left - 20)) + "px";
 });
 
-startBtn.onclick = () => {
-  // Unlock audio (browser requirement)
-  hitSound.volume = 0.4;
-  scoreSound.volume = 0.4;
-  hitSound.play().then(() => hitSound.pause());
-  scoreSound.play().then(() => scoreSound.pause());
-
-  startGame();
-};
-
+startBtn.onclick = startGame;
 </script>
 
 </body>
