@@ -8,86 +8,48 @@
 <style>
 body {
   margin: 0;
-  background: #121212;
+  background: #111;
   color: white;
   font-family: Arial, sans-serif;
   text-align: center;
 }
 
-h1 { margin: 10px 0; }
-
-#hud {
-  margin-bottom: 10px;
-}
-
-#gameContainer {
+#game {
   position: relative;
   width: 95vw;
-  max-width: 420px;
+  max-width: 400px;
   height: 70vh;
   max-height: 500px;
   margin: auto;
-  background: #2b2b2b;
+  background: #222;
   border-radius: 12px;
-  overflow: hidden;
   border: 3px solid #4caf50;
+  overflow: hidden;
 }
 
 #player {
   position: absolute;
-  width: 50px;
-  height: 50px;
+  width: 40px;
+  height: 40px;
   background: #4caf50;
   bottom: 10px;
   left: 50%;
   transform: translateX(-50%);
-  border-radius: 10px;
+  border-radius: 8px;
 }
 
 .obstacle {
   position: absolute;
-  width: 50px;
-  height: 50px;
+  width: 40px;
+  height: 40px;
   background: red;
-  border-radius: 10px;
+  border-radius: 8px;
 }
 
-.particle {
-  position: absolute;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  pointer-events: none;
-  animation: explode 0.6s forwards;
-}
-
-@keyframes explode {
-  to {
-    transform: translate(var(--dx), var(--dy));
-    opacity: 0;
-  }
-}
-
-#controls {
-  display: flex;
-  justify-content: center;
-  gap: 20px;
-  margin: 15px 0;
-}
-
-.controlBtn {
-  width: 80px;
-  height: 60px;
-  font-size: 30px;
-  border-radius: 12px;
-  border: none;
-  background: #4caf50;
-  color: white;
-}
-
-#startBtn {
+button {
+  margin: 10px;
+  padding: 12px 18px;
   font-size: 18px;
-  padding: 10px 20px;
   border-radius: 10px;
   border: none;
   background: #2196f3;
@@ -98,152 +60,130 @@ h1 { margin: 10px 0; }
 
 <body>
 
-<h1>🚨 Dodge Game</h1>
-
-<div id="hud">
+<h2>🚨 Dodge Game</h2>
 Score: <span id="score">0</span> |
-High Score: <span id="highScore">0</span>
-</div>
+High: <span id="high">0</span>
 
-<div id="gameContainer">
+<div id="game">
   <div id="player"></div>
 </div>
 
-<div id="controls">
-  <button class="controlBtn" id="leftBtn">⬅️</button>
-  <button class="controlBtn" id="rightBtn">➡️</button>
-</div>
-
-<button id="startBtn">Start Game</button>
+<button id="start">Start</button>
 
 <script>
-const game = document.getElementById("gameContainer");
+const game = document.getElementById("game");
 const player = document.getElementById("player");
 const scoreEl = document.getElementById("score");
-const highScoreEl = document.getElementById("highScore");
+const highEl = document.getElementById("high");
 
-let score = 0;
-let highScore = localStorage.getItem("mxv_dodge_high") || 0;
-highScoreEl.textContent = highScore;
-
-let obstacles = [];
+let ctx;
 let running = false;
-let speed = 3;
-let loop, spawn;
+let obstacles = [];
+let lastSpawn = 0;
+let lastTime = 0;
+let score = 0;
+let high = localStorage.getItem("mxv_high") || 0;
+highEl.textContent = high;
 
-// 🔊 AUDIO (mobile-safe)
-let audioUnlocked = false;
-const ding = new Audio("https://cdn.jsdelivr.net/gh/jshawl/AudioFX/sounds/coin.mp3");
-const hit = new Audio("https://cdn.jsdelivr.net/gh/jshawl/AudioFX/sounds/explosion.mp3");
-
-function unlockAudio() {
-  if (!audioUnlocked) {
-    ding.play().then(() => ding.pause()).catch(()=>{});
-    hit.play().then(() => hit.pause()).catch(()=>{});
-    audioUnlocked = true;
-  }
+// 🔊 Web Audio (ALWAYS WORKS)
+function beep(freq, time) {
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.frequency.value = freq;
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start();
+  gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + time);
+  osc.stop(ctx.currentTime + time);
 }
 
 function startGame() {
-  unlockAudio();
+  ctx = new (window.AudioContext || window.webkitAudioContext)();
+  running = true;
   score = 0;
-  speed = 3;
-  scoreEl.textContent = score;
   obstacles.forEach(o => o.el.remove());
   obstacles = [];
-  running = true;
-
-  spawn = setInterval(createObstacle, 900);
-  loop = setInterval(update, 20);
+  lastSpawn = 0;
+  lastTime = performance.now();
+  requestAnimationFrame(loop);
 }
 
-function endGame() {
-  running = false;
-  clearInterval(loop);
-  clearInterval(spawn);
+function loop(t) {
+  if (!running) return;
+  const delta = t - lastTime;
+  lastTime = t;
 
-  if (score > highScore) {
-    highScore = score;
-    localStorage.setItem("mxv_dodge_high", highScore);
-    highScoreEl.textContent = highScore;
-    alert("🎉 New High Score!");
+  // spawn
+  lastSpawn += delta;
+  if (lastSpawn > 900) {
+    spawn();
+    lastSpawn = 0;
   }
-}
 
-function createObstacle() {
-  const o = document.createElement("div");
-  o.className = "obstacle";
-  o.style.left = Math.random() * (game.clientWidth - 50) + "px";
-  o.style.top = "0px";
-  game.appendChild(o);
-  obstacles.push({ el: o, y: 0 });
-}
-
-function update() {
   obstacles.forEach((o, i) => {
-    o.y += speed;
+    o.y += 0.15 * delta;
     o.el.style.top = o.y + "px";
 
-    if (collision(player, o.el)) {
-      explode(player);
-      hit.currentTime = 0;
-      hit.play();
-      endGame();
+    if (collide(player, o.el)) {
+      beep(120, 0.3);
+      end();
     }
 
     if (o.y > game.clientHeight) {
       o.el.remove();
       obstacles.splice(i, 1);
       score++;
-      speed += 0.05;
       scoreEl.textContent = score;
-      ding.currentTime = 0;
-      ding.play();
+      beep(600, 0.05);
     }
   });
+
+  requestAnimationFrame(loop);
 }
 
-function collision(a, b) {
+function spawn() {
+  const el = document.createElement("div");
+  el.className = "obstacle";
+  el.style.left = Math.random() * (game.clientWidth - 40) + "px";
+  el.style.top = "0px";
+  game.appendChild(el);
+  obstacles.push({ el, y: 0 });
+}
+
+function end() {
+  running = false;
+  if (score > high) {
+    high = score;
+    localStorage.setItem("mxv_high", high);
+    highEl.textContent = high;
+  }
+}
+
+function collide(a, b) {
   const r1 = a.getBoundingClientRect();
   const r2 = b.getBoundingClientRect();
   return !(r1.right < r2.left || r1.left > r2.right || r1.bottom < r2.top || r1.top > r2.bottom);
 }
 
-function explode(el) {
-  for (let i = 0; i < 20; i++) {
-    const p = document.createElement("div");
-    p.className = "particle";
-    p.style.left = el.offsetLeft + 25 + "px";
-    p.style.top = el.offsetTop + 25 + "px";
-    p.style.background = `hsl(${Math.random()*360},80%,60%)`;
-    p.style.setProperty("--dx", (Math.random()*120-60)+"px");
-    p.style.setProperty("--dy", (Math.random()*120-60)+"px");
-    game.appendChild(p);
-    setTimeout(()=>p.remove(),600);
-  }
-}
+// controls
+document.getElementById("start").onclick = startGame;
 
-// 🕹️ CONTROLS
-function move(dir) {
-  const x = player.offsetLeft + dir * 20;
-  player.style.left = Math.max(0, Math.min(game.clientWidth - 50, x)) + "px";
-}
-
-document.getElementById("leftBtn").ontouchstart =
-document.getElementById("leftBtn").onclick = () => move(-1);
-
-document.getElementById("rightBtn").ontouchstart =
-document.getElementById("rightBtn").onclick = () => move(1);
-
-document.getElementById("startBtn").onclick = startGame;
-
-// keyboard (desktop)
-document.addEventListener("keydown", e => {
+document.addEventListener("touchstart", e => {
   if (!running) return;
-  if (e.key === "ArrowLeft") move(-1);
-  if (e.key === "ArrowRight") move(1);
+  const x = e.touches[0].clientX;
+  const rect = game.getBoundingClientRect();
+  player.style.left =
+    Math.max(0, Math.min(rect.width - 40, x - rect.left - 20)) + "px";
+});
+
+document.addEventListener("mousemove", e => {
+  if (!running) return;
+  const rect = game.getBoundingClientRect();
+  player.style.left =
+    Math.max(0, Math.min(rect.width - 40, e.clientX - rect.left - 20)) + "px";
 });
 </script>
 
 </body>
 </html>
+
