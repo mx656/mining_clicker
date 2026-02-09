@@ -13,6 +13,7 @@ body {
   text-align: center;
   overflow: hidden;
 }
+
 canvas {
   display: block;
   margin: 10px auto;
@@ -20,15 +21,17 @@ canvas {
   border: 3px solid #4caf50;
   border-radius: 12px;
 }
+
 #overlay {
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,0.85);
   display: flex;
   flex-direction: column;
-  justify-content: center;
   align-items: center;
+  justify-content: center;
 }
+
 button {
   padding: 12px 24px;
   font-size: 18px;
@@ -37,6 +40,24 @@ button {
   background: #4caf50;
   color: white;
 }
+
+/* MOBILE CONTROLS */
+#controls {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px;
+  max-width: 360px;
+  margin: auto;
+}
+.ctrl {
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.15);
+  font-size: 28px;
+  line-height: 70px;
+  user-select: none;
+}
 </style>
 </head>
 
@@ -44,7 +65,14 @@ button {
 
 <h2>🚀 MXV Shooter</h2>
 <div>Score: <span id="score">0</span> | High: <span id="high">0</span></div>
+
 <canvas id="game" width="360" height="520"></canvas>
+
+<div id="controls">
+  <div class="ctrl" id="left">◀</div>
+  <div class="ctrl" id="shoot">●</div>
+  <div class="ctrl" id="right">▶</div>
+</div>
 
 <div id="overlay">
   <h2>MXV Shooter</h2>
@@ -52,104 +80,117 @@ button {
 </div>
 
 <script>
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
-
-const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+/* AUDIO */
+const audioCtx = new (window.AudioContext||window.webkitAudioContext)();
 function beep(f,d=0.08){
-  const o = audioCtx.createOscillator();
-  const g = audioCtx.createGain();
-  o.frequency.value = f;
-  g.gain.value = 0.15;
+  const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+  o.frequency.value=f; g.gain.value=0.15;
   o.connect(g).connect(audioCtx.destination);
-  o.start();
-  o.stop(audioCtx.currentTime + d);
+  o.start(); o.stop(audioCtx.currentTime+d);
 }
 
-let player, bullets, enemies;
-let score = 0;
-let high = localStorage.getItem("mxv_shooter_high") || 0;
-let running = false;
-let lastEnemy = 0;
-let lastShot = 0;
+/* GAME */
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
 
-document.getElementById("high").textContent = high;
+let player, bullets, enemies, stars;
+let score=0;
+let high=localStorage.getItem("mxv_shooter_high")||0;
+let running=false;
+let lastEnemy=0, lastShot=0;
+let move=-0;
 
+document.getElementById("high").textContent=high;
+
+/* START */
 function startGame(){
   audioCtx.resume();
-  player = { x: canvas.width/2, y: canvas.height-40 };
-  bullets = [];
-  enemies = [];
-  score = 0;
-  running = true;
-  lastEnemy = 0;
-  document.getElementById("score").textContent = score;
-  document.getElementById("overlay").style.display = "none";
+  player={x:canvas.width/2,y:canvas.height-40};
+  bullets=[]; enemies=[];
+  stars=Array.from({length:40},()=>({
+    x:Math.random()*canvas.width,
+    y:Math.random()*canvas.height,
+    s:1+Math.random()*2
+  }));
+  score=0; running=true; lastEnemy=0;
+  document.getElementById("score").textContent=score;
+  document.getElementById("overlay").style.display="none";
   requestAnimationFrame(loop);
 }
+document.getElementById("startBtn").onclick=startGame;
 
-document.getElementById("startBtn").onclick = startGame;
+/* INPUT */
+let keys={};
+document.addEventListener("keydown",e=>keys[e.key]=true);
+document.addEventListener("keyup",e=>keys[e.key]=false);
 
-let keys = {};
-document.addEventListener("keydown", e => keys[e.key] = true);
-document.addEventListener("keyup", e => keys[e.key] = false);
+left.ontouchstart=()=>move=-1;
+right.ontouchstart=()=>move=1;
+shoot.ontouchstart=()=>fire();
+left.ontouchend=right.ontouchend=()=>move=0;
 
-function loop(time){
-  if (!running) return;
+/* SHOOT */
+function fire(){
+  const t=performance.now();
+  if(t-lastShot<250) return;
+  bullets.push({x:player.x,y:player.y});
+  beep(700); lastShot=t;
+}
+
+/* LOOP */
+function loop(t){
+  if(!running) return;
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  // MOVE PLAYER
-  if (keys["ArrowLeft"] || keys["a"]) player.x -= 5;
-  if (keys["ArrowRight"] || keys["d"]) player.x += 5;
-  player.x = Math.max(15, Math.min(canvas.width-15, player.x));
-
-  // DRAW PLAYER
-  ctx.fillStyle = "#4caf50";
-  ctx.beginPath();
-  ctx.arc(player.x, player.y, 14, 0, Math.PI*2);
-  ctx.fill();
-
-  // SHOOT
-  if (keys[" "] && time-lastShot>250){
-    bullets.push({ x: player.x, y: player.y });
-    beep(700);
-    lastShot = time;
-  }
-
-  // SPAWN ENEMIES (FIXED)
-  if (time-lastEnemy>900){
-    enemies.push({ x: Math.random()*330+15, y: -20 });
-    lastEnemy = time;
-  }
-
-  // BULLETS
-  bullets.forEach((b,i)=>{
-    b.y -= 7;
-    ctx.fillStyle = "yellow";
-    ctx.fillRect(b.x-2,b.y,4,8);
-    if (b.y<0) bullets.splice(i,1);
+  /* BACKGROUND STARS */
+  ctx.fillStyle="white";
+  stars.forEach(s=>{
+    s.y+=s.s;
+    if(s.y>canvas.height) s.y=0;
+    ctx.fillRect(s.x,s.y,2,2);
   });
 
-  // ENEMIES
+  /* PLAYER */
+  if(keys["ArrowLeft"]||keys["a"]) move=-1;
+  if(keys["ArrowRight"]||keys["d"]) move=1;
+  player.x+=move*5;
+  player.x=Math.max(15,Math.min(canvas.width-15,player.x));
+  ctx.fillStyle="#4caf50";
+  ctx.beginPath();
+  ctx.arc(player.x,player.y,14,0,Math.PI*2);
+  ctx.fill();
+
+  /* SHOOT */
+  if(keys[" "] && t-lastShot>250) fire();
+
+  /* ENEMIES */
+  if(t-lastEnemy>900){
+    enemies.push({x:Math.random()*330+15,y:-20});
+    lastEnemy=t;
+  }
+
+  bullets.forEach((b,i)=>{
+    b.y-=7;
+    ctx.fillStyle="yellow";
+    ctx.fillRect(b.x-2,b.y,4,8);
+    if(b.y<0) bullets.splice(i,1);
+  });
+
   enemies.forEach((e,i)=>{
-    e.y += 2;
-    ctx.fillStyle = "#f44336";
+    e.y+=2;
+    ctx.fillStyle="#f44336";
     ctx.beginPath();
     ctx.arc(e.x,e.y,14,0,Math.PI*2);
     ctx.fill();
 
-    // HIT PLAYER
-    if (Math.hypot(e.x-player.x,e.y-player.y)<28){
-      gameOver();
-    }
+    if(Math.hypot(e.x-player.x,e.y-player.y)<28) gameOver();
 
     bullets.forEach((b,j)=>{
-      if (Math.hypot(e.x-b.x,e.y-b.y)<16){
+      if(Math.hypot(e.x-b.x,e.y-b.y)<16){
         enemies.splice(i,1);
         bullets.splice(j,1);
-        score++;
-        beep(200);
-        document.getElementById("score").textContent = score;
+        score++; beep(200);
+        document.getElementById("score").textContent=score;
       }
     });
   });
@@ -157,14 +198,15 @@ function loop(time){
   requestAnimationFrame(loop);
 }
 
+/* GAME OVER */
 function gameOver(){
-  running = false;
-  if (score>high){
-    high = score;
-    localStorage.setItem("mxv_shooter_high", high);
-    document.getElementById("high").textContent = high;
+  running=false;
+  if(score>high){
+    high=score;
+    localStorage.setItem("mxv_shooter_high",high);
+    document.getElementById("high").textContent=high;
   }
-  document.getElementById("overlay").style.display = "flex";
+  document.getElementById("overlay").style.display="flex";
 }
 </script>
 </body>
