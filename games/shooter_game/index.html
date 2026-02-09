@@ -13,7 +13,6 @@ body {
   text-align: center;
   overflow: hidden;
 }
-
 canvas {
   display: block;
   margin: 10px auto;
@@ -21,7 +20,6 @@ canvas {
   border: 3px solid #4caf50;
   border-radius: 12px;
 }
-
 #overlay {
   position: fixed;
   inset: 0;
@@ -31,7 +29,6 @@ canvas {
   align-items: center;
   justify-content: center;
 }
-
 button {
   padding: 12px 24px;
   font-size: 18px;
@@ -40,12 +37,9 @@ button {
   background: #4caf50;
   color: white;
 }
-
-/* MOBILE CONTROLS */
 #controls {
   display: flex;
   justify-content: space-between;
-  padding: 10px;
   max-width: 360px;
   margin: auto;
 }
@@ -64,7 +58,11 @@ button {
 <body>
 
 <h2>🚀 MXV Shooter</h2>
-<div>Score: <span id="score">0</span> | High: <span id="high">0</span></div>
+<div>
+Score: <span id="score">0</span> |
+High: <span id="high">0</span> |
+Shield: <span id="shieldUI">0</span>
+</div>
 
 <canvas id="game" width="360" height="520"></canvas>
 
@@ -98,7 +96,12 @@ let score=0;
 let high=localStorage.getItem("mxv_shooter_high")||0;
 let running=false;
 let lastEnemy=0, lastShot=0;
-let move=-0;
+let move=0;
+
+/* UPGRADES */
+let fireRate=250;
+let spread=1;
+let shield=0;
 
 document.getElementById("high").textContent=high;
 
@@ -107,34 +110,37 @@ function startGame(){
   audioCtx.resume();
   player={x:canvas.width/2,y:canvas.height-40};
   bullets=[]; enemies=[];
-  stars=Array.from({length:40},()=>({
+  stars=Array.from({length:50},()=>({
     x:Math.random()*canvas.width,
     y:Math.random()*canvas.height,
     s:1+Math.random()*2
   }));
-  score=0; running=true; lastEnemy=0;
-  document.getElementById("score").textContent=score;
+  score=0; fireRate=250; spread=1; shield=0;
+  running=true; lastEnemy=0;
+  updateUI();
   document.getElementById("overlay").style.display="none";
   requestAnimationFrame(loop);
 }
-document.getElementById("startBtn").onclick=startGame;
+startBtn.onclick=startGame;
 
 /* INPUT */
 let keys={};
 document.addEventListener("keydown",e=>keys[e.key]=true);
 document.addEventListener("keyup",e=>keys[e.key]=false);
-
 left.ontouchstart=()=>move=-1;
 right.ontouchstart=()=>move=1;
 shoot.ontouchstart=()=>fire();
 left.ontouchend=right.ontouchend=()=>move=0;
 
-/* SHOOT */
+/* FIRE */
 function fire(){
   const t=performance.now();
-  if(t-lastShot<250) return;
-  bullets.push({x:player.x,y:player.y});
-  beep(700); lastShot=t;
+  if(t-lastShot<fireRate) return;
+  for(let i=0;i<spread;i++){
+    bullets.push({x:player.x+(i-(spread-1)/2)*8,y:player.y});
+  }
+  beep(700);
+  lastShot=t;
 }
 
 /* LOOP */
@@ -142,7 +148,7 @@ function loop(t){
   if(!running) return;
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  /* BACKGROUND STARS */
+  /* STARS */
   ctx.fillStyle="white";
   stars.forEach(s=>{
     s.y+=s.s;
@@ -155,20 +161,24 @@ function loop(t){
   if(keys["ArrowRight"]||keys["d"]) move=1;
   player.x+=move*5;
   player.x=Math.max(15,Math.min(canvas.width-15,player.x));
-  ctx.fillStyle="#4caf50";
+  ctx.fillStyle=shield>0?"cyan":"#4caf50";
   ctx.beginPath();
   ctx.arc(player.x,player.y,14,0,Math.PI*2);
   ctx.fill();
 
-  /* SHOOT */
-  if(keys[" "] && t-lastShot>250) fire();
+  if(keys[" "] && t-lastShot>fireRate) fire();
 
-  /* ENEMIES */
+  /* SPAWN ENEMIES / BOSSES */
   if(t-lastEnemy>900){
-    enemies.push({x:Math.random()*330+15,y:-20});
+    if(score>0 && score%25===0){
+      enemies.push({x:canvas.width/2,y:-30,r:26,hp:8,s:1});
+    } else {
+      enemies.push({x:Math.random()*330+15,y:-20,r:14,hp:1,s:2});
+    }
     lastEnemy=t;
   }
 
+  /* BULLETS */
   bullets.forEach((b,i)=>{
     b.y-=7;
     ctx.fillStyle="yellow";
@@ -176,26 +186,50 @@ function loop(t){
     if(b.y<0) bullets.splice(i,1);
   });
 
+  /* ENEMIES */
   enemies.forEach((e,i)=>{
-    e.y+=2;
-    ctx.fillStyle="#f44336";
+    e.y+=e.s;
+    ctx.fillStyle=e.hp>1?"purple":"#f44336";
     ctx.beginPath();
-    ctx.arc(e.x,e.y,14,0,Math.PI*2);
+    ctx.arc(e.x,e.y,e.r,0,Math.PI*2);
     ctx.fill();
 
-    if(Math.hypot(e.x-player.x,e.y-player.y)<28) gameOver();
+    if(Math.hypot(e.x-player.x,e.y-player.y)<e.r+14){
+      if(shield>0){ shield--; enemies.splice(i,1); }
+      else gameOver();
+      updateUI();
+    }
 
     bullets.forEach((b,j)=>{
-      if(Math.hypot(e.x-b.x,e.y-b.y)<16){
-        enemies.splice(i,1);
+      if(Math.hypot(e.x-b.x,e.y-b.y)<e.r){
         bullets.splice(j,1);
-        score++; beep(200);
-        document.getElementById("score").textContent=score;
+        e.hp--;
+        if(e.hp<=0){
+          enemies.splice(i,1);
+          score++;
+          applyUpgrades();
+          updateUI();
+          beep(200);
+        }
       }
     });
   });
 
   requestAnimationFrame(loop);
+}
+
+/* UPGRADES */
+function applyUpgrades(){
+  if(score===10) fireRate=180;
+  if(score===20) spread=2;
+  if(score===30) shield++;
+  if(score===40) spread=3;
+}
+
+/* UI */
+function updateUI(){
+  scoreEl.textContent=score;
+  shieldUI.textContent=shield;
 }
 
 /* GAME OVER */
@@ -204,7 +238,7 @@ function gameOver(){
   if(score>high){
     high=score;
     localStorage.setItem("mxv_shooter_high",high);
-    document.getElementById("high").textContent=high;
+    highEl.textContent=high;
   }
   document.getElementById("overlay").style.display="flex";
 }
